@@ -551,9 +551,15 @@ namespace DotNetSiemensPLCToolBoxLibrary.PLCs.S7_xxx.MC7
                             newRow.Parent = callRow.Parent;
                             newRow.Command = Mnemonic.opCALL[(int)myOpt.Mnemonic];
                             newRow.Parameter = callRow.Parameter;
+                            if (multiInstance)
+                            {
+                                string multiInstanceParameter = GetMultiInstanceParameter(myFct, callRow.Parameter, multiInstanceOffset);
+                                if (multiInstanceParameter != null)
+                                    newRow.Parameter = multiInstanceParameter;
+                            }
                             if (diName.Length > 2 && !diName.StartsWith("#"))
                                 newRow.DiName = "DI" + int.Parse(diName.Substring(2));
-                            else if (diName.StartsWith("#")) 
+                            else if (diName.StartsWith("#"))
                                 newRow.DiName = diName;
                             newRow.CallParameter = new List<S7FunctionBlockParameter>();
 
@@ -685,6 +691,84 @@ namespace DotNetSiemensPLCToolBoxLibrary.PLCs.S7_xxx.MC7
                 }
                 myFct.AWLCode = retVal;
             }
+        }
+
+        internal static string GetMultiInstanceParameter(S7FunctionBlock functionBlock, string calledBlock, int byteOffset)
+        {
+            if (functionBlock == null || functionBlock.Parameter == null || string.IsNullOrEmpty(calledBlock))
+                return null;
+
+            bool isSystemFunctionBlock;
+            string blockNumber;
+            if (calledBlock.StartsWith("SFB", StringComparison.OrdinalIgnoreCase))
+            {
+                isSystemFunctionBlock = true;
+                blockNumber = calledBlock.Substring(3);
+            }
+            else if (calledBlock.StartsWith("FB", StringComparison.OrdinalIgnoreCase))
+            {
+                isSystemFunctionBlock = false;
+                blockNumber = calledBlock.Substring(2);
+            }
+            else
+            {
+                return null;
+            }
+
+            int calledBlockNumber;
+            if (!int.TryParse(blockNumber, NumberStyles.Integer, CultureInfo.InvariantCulture, out calledBlockNumber))
+                return null;
+
+            S7DataRow instance = FindMultiInstance(
+                functionBlock.Parameter,
+                isSystemFunctionBlock,
+                calledBlockNumber,
+                byteOffset);
+
+            if (instance == null)
+                return null;
+
+            string instanceName = instance.StructuredName;
+            int rootSeparator = instanceName.IndexOf('.');
+            if (rootSeparator >= 0)
+                instanceName = instanceName.Substring(rootSeparator + 1);
+
+            return "#" + instanceName;
+        }
+
+        private static S7DataRow FindMultiInstance(
+            S7DataRow parent,
+            bool isSystemFunctionBlock,
+            int calledBlockNumber,
+            int byteOffset)
+        {
+            if (parent.Children == null)
+                return null;
+
+            foreach (S7DataRow row in parent.Children)
+            {
+                bool isMatchingType = isSystemFunctionBlock
+                    ? row.DataType == S7DataRowType.SFB || row.DataType == S7DataRowType.MultiInst_SFB
+                    : row.DataType == S7DataRowType.FB || row.DataType == S7DataRowType.MultiInst_FB;
+
+                if (isMatchingType &&
+                    row.DataTypeBlockNumber == calledBlockNumber &&
+                    row.BlockAddress.ByteAddress == byteOffset &&
+                    row.BlockAddress.BitAddress == 0)
+                {
+                    return row;
+                }
+
+                S7DataRow nestedInstance = FindMultiInstance(
+                    row,
+                    isSystemFunctionBlock,
+                    calledBlockNumber,
+                    byteOffset);
+                if (nestedInstance != null)
+                    return nestedInstance;
+            }
+
+            return null;
         }
     }
 }
