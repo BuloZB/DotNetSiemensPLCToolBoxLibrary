@@ -239,7 +239,7 @@ namespace DotNetSiemensPLCToolBoxLibrary.PLCs.S7_xxx.MC7
                                         else
                                             tmp += p2;
                                         newPar.Value = tmp;
-                                        AddCallParameterIfAssigned(newRow, newPar);
+                                        newRow.CallParameter.Add(newPar);
                                     }
                                     else if (akRow.DataType == S7DataRowType.ANY)
                                     {
@@ -273,7 +273,7 @@ namespace DotNetSiemensPLCToolBoxLibrary.PLCs.S7_xxx.MC7
                                              //tmp += p2;
                                         }
                                         newPar.Value = tmp;
-                                        AddCallParameterIfAssigned(newRow, newPar);
+                                        newRow.CallParameter.Add(newPar);
                                     }
                                     else
                                     {
@@ -380,7 +380,7 @@ namespace DotNetSiemensPLCToolBoxLibrary.PLCs.S7_xxx.MC7
                                             }                                    
                                         }
 
-                                        AddCallParameterIfAssigned(newRow, newPar);
+                                        newRow.CallParameter.Add(newPar);
                                     }
                                 }
                             }
@@ -498,7 +498,7 @@ namespace DotNetSiemensPLCToolBoxLibrary.PLCs.S7_xxx.MC7
                             else
                             {
                                 if (!Parameters.ContainsKey(akPar))
-                                    Parameters.Add(akPar, row.Parameter);
+                                    Parameters.Add(akPar, db + row.Parameter);
                             }
                             akPar = "";
                             db = "";
@@ -513,7 +513,7 @@ namespace DotNetSiemensPLCToolBoxLibrary.PLCs.S7_xxx.MC7
                             else
                             {
                                 if (!Parameters.ContainsKey(akPar))
-                                    Parameters.Add(akPar, row.Parameter);
+                                    Parameters.Add(akPar, db + row.Parameter);
                             }
                             akPar = "";
                             db = "";
@@ -648,7 +648,7 @@ namespace DotNetSiemensPLCToolBoxLibrary.PLCs.S7_xxx.MC7
                                             }
                                         }
 
-                                        AddCallParameterIfAssigned(newRow, newPar);
+                                        newRow.CallParameter.Add(newPar);
                                     }
                                 }
                             }
@@ -695,14 +695,6 @@ namespace DotNetSiemensPLCToolBoxLibrary.PLCs.S7_xxx.MC7
                 }
                 myFct.AWLCode = retVal;
             }
-        }
-
-        internal static void AddCallParameterIfAssigned(
-            S7FunctionBlockRow call,
-            S7FunctionBlockParameter parameter)
-        {
-            if (!string.IsNullOrEmpty(parameter.Value))
-                call.CallParameter.Add(parameter);
         }
 
         internal static string GetMultiInstanceParameter(S7FunctionBlock functionBlock, string calledBlock, int byteOffset)

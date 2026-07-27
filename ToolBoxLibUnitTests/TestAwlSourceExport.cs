@@ -42,6 +42,31 @@ namespace ToolBoxLibUnitTests
             ClassicAssert.AreEqual(source, block.GetSourceBlock(false));
         }
 
+        [Test]
+        public void SymbolicCallOperandsResolveDbPathsAndFormatAbsoluteFallbacks()
+        {
+            var symbolTable = new TestSymbolTable();
+            symbolTable.Add("DB100", "DB_VISU");
+
+            ClassicAssert.AreEqual(
+                "E      6.5",
+                S7FunctionBlockParameter.GetSymbolicValue("E6.5", symbolTable, null));
+            ClassicAssert.AreEqual(
+                "A      4.7",
+                S7FunctionBlockParameter.GetSymbolicValue("A4.7", symbolTable, null));
+            ClassicAssert.AreEqual(
+                "\"DB_VISU\".STEUERDATEN.LICHT_EG.LICHT_2",
+                S7FunctionBlockParameter.GetSymbolicValue(
+                    "DI100.DIX 108.1",
+                    symbolTable,
+                    (operand, address) =>
+                    {
+                        ClassicAssert.AreEqual("DB100", operand);
+                        ClassicAssert.AreEqual("DBX 108.1", address);
+                        return "STEUERDATEN.LICHT_EG.LICHT_2";
+                    }));
+        }
+
         private static S7FunctionBlock CreateFunctionBlock()
         {
             var symbolTable = new TestSymbolTable();
