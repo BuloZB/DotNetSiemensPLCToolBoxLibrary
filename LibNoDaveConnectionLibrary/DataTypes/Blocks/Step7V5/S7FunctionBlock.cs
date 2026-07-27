@@ -129,9 +129,12 @@ namespace DotNetSiemensPLCToolBoxLibrary.DataTypes.Blocks.Step7V5
             return ToString(true);
         }
 
-        public override string GetSourceBlock(bool useSymbols = false)
+        public override string GetSourceBlock(bool useSymbols = true)
         {
             StringBuilder retVal = new StringBuilder();
+            S7SourceOperandMode operandMode = useSymbols
+                ? S7SourceOperandMode.Symbolic
+                : S7SourceOperandMode.Absolute;
 
             string name = this.BlockName;
             if (useSymbols && SymbolTableEntry != null)
@@ -175,20 +178,12 @@ namespace DotNetSiemensPLCToolBoxLibrary.DataTypes.Blocks.Step7V5
                         else if (parnm == "STATIC")
                             ber = "VAR";
                         retVal.AppendLine(ber);
-                        string vars = AWLToSource.DataRowToSource(s7DataRow, "  ", ((this.BlockType != PLCBlockType.FB && this.BlockType != PLCBlockType.SFB) || parnm == "TEMP"));
-                        if (useSymbols) {
-                            foreach (string dependency in Dependencies)
-                            {
-                                if (dependency.Contains("SFC") || dependency.Contains("SFB"))
-                                    continue;
-                                try
-                                {
-                                    string depSymbol = "\"" + SymbolTable.GetEntryFromOperand(dependency).Symbol + "\"";
-                                    vars = vars.Replace(dependency, SymbolTable.GetEntryFromOperand(dependency).Symbol);
-                                }
-                                catch { }
-                            }
-                        }                        
+                        string vars = AWLToSource.DataRowToSource(
+                            s7DataRow,
+                            "  ",
+                            (this.BlockType != PLCBlockType.FB && this.BlockType != PLCBlockType.SFB) || parnm == "TEMP",
+                            operandMode,
+                            SymbolTable);
                         retVal.Append(vars);
                         retVal.AppendLine("END_VAR");
                     }

@@ -239,7 +239,7 @@ namespace DotNetSiemensPLCToolBoxLibrary.PLCs.S7_xxx.MC7
                                         else
                                             tmp += p2;
                                         newPar.Value = tmp;
-                                        newRow.CallParameter.Add(newPar);
+                                        AddCallParameterIfAssigned(newRow, newPar);
                                     }
                                     else if (akRow.DataType == S7DataRowType.ANY)
                                     {
@@ -273,7 +273,7 @@ namespace DotNetSiemensPLCToolBoxLibrary.PLCs.S7_xxx.MC7
                                              //tmp += p2;
                                         }
                                         newPar.Value = tmp;
-                                        newRow.CallParameter.Add(newPar);
+                                        AddCallParameterIfAssigned(newRow, newPar);
                                     }
                                     else
                                     {
@@ -380,7 +380,7 @@ namespace DotNetSiemensPLCToolBoxLibrary.PLCs.S7_xxx.MC7
                                             }                                    
                                         }
 
-                                        newRow.CallParameter.Add(newPar);
+                                        AddCallParameterIfAssigned(newRow, newPar);
                                     }
                                 }
                             }
@@ -581,11 +581,15 @@ namespace DotNetSiemensPLCToolBoxLibrary.PLCs.S7_xxx.MC7
                                             var anySizeAddr = ((S7DataRow)s7DataRow).BlockAddress.ByteAddress + multiInstanceOffset + 2;
                                             var anyPosAddr = ((S7DataRow)s7DataRow).BlockAddress.ByteAddress + multiInstanceOffset + 6;
 
-                                            string anySize = "";
-                                            string anyPos = "";
-                                            Parameters.TryGetValue("DIW[AR2,P#" + anySizeAddr + ".0]", out anySize);
-                                            Parameters.TryGetValue("DID[AR2,P#" + anyPosAddr + ".0]", out anyPos);
-                                            par = anyPos + " BYTE " + anySize;
+                                            string anySize;
+                                            string anyPos;
+                                            if (Parameters.TryGetValue("DIW[AR2,P#" + anySizeAddr + ".0]", out anySize) &&
+                                                Parameters.TryGetValue("DID[AR2,P#" + anyPosAddr + ".0]", out anyPos) &&
+                                                !string.IsNullOrEmpty(anySize) &&
+                                                !string.IsNullOrEmpty(anyPos))
+                                            {
+                                                par = anyPos + " BYTE " + anySize;
+                                            }
                                         }
                                         else
                                         {
@@ -644,7 +648,7 @@ namespace DotNetSiemensPLCToolBoxLibrary.PLCs.S7_xxx.MC7
                                             }
                                         }
 
-                                        newRow.CallParameter.Add(newPar);
+                                        AddCallParameterIfAssigned(newRow, newPar);
                                     }
                                 }
                             }
@@ -691,6 +695,14 @@ namespace DotNetSiemensPLCToolBoxLibrary.PLCs.S7_xxx.MC7
                 }
                 myFct.AWLCode = retVal;
             }
+        }
+
+        internal static void AddCallParameterIfAssigned(
+            S7FunctionBlockRow call,
+            S7FunctionBlockParameter parameter)
+        {
+            if (!string.IsNullOrEmpty(parameter.Value))
+                call.CallParameter.Add(parameter);
         }
 
         internal static string GetMultiInstanceParameter(S7FunctionBlock functionBlock, string calledBlock, int byteOffset)

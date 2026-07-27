@@ -886,13 +886,18 @@ namespace DotNetSiemensPLCToolBoxLibrary.DataTypes.Projectfolders.Step7V5
         /// </summary>
         /// <param name="blkInfo">The BlockInfo from the Block you wish to get the Source of!</param>
         /// <returns></returns>
-        public string GetSourceBlock(ProjectBlockInfo blkInfo, bool useSymbols = false)
+        public string GetSourceBlock(ProjectBlockInfo blkInfo, bool useSymbols = true)
         {
             StringBuilder retVal = new StringBuilder();
             Block blk = GetBlock(blkInfo, new S7ConvertingOptions(Project.ProjectLanguage) { CombineDBOpenAndDBAccess = true, GenerateCallsfromUCs = true, ReplaceDBAccessesWithSymbolNames = useSymbols, ReplaceLokalDataAddressesWithSymbolNames = true, UseComments = true });
             S7Block fblk = (S7Block)blk;
 
             return fblk.GetSourceBlock(useSymbols);
+        }
+
+        public string GetSourceBlock(ProjectBlockInfo blkInfo, S7SourceOperandMode operandMode)
+        {
+            return GetSourceBlock(blkInfo, operandMode == S7SourceOperandMode.Symbolic);
         }
 
         private static DateTime GetTimeStamp(string timestamp)

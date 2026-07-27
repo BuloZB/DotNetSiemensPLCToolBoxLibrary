@@ -1,6 +1,7 @@
 using DotNetSiemensPLCToolBoxLibrary.DataTypes;
 using DotNetSiemensPLCToolBoxLibrary.DataTypes.Blocks.Step7V5;
 using DotNetSiemensPLCToolBoxLibrary.PLCs.S7_xxx.MC7;
+using System.Collections.Generic;
 using NUnit.Framework;
 using NUnit.Framework.Legacy;
 
@@ -40,6 +41,35 @@ namespace ToolBoxLibUnitTests
             block.Parameter = root;
 
             ClassicAssert.IsNull(CallConverter.GetMultiInstanceParameter(block, "FB102", 0));
+        }
+
+        [Test]
+        public void OmitsUnassignedCallParametersButKeepsFalseAndZero()
+        {
+            var call = new S7FunctionBlockRow
+            {
+                Command = "CALL",
+                Parameter = "#LIGHT",
+                CallParameter = new List<S7FunctionBlockParameter>()
+            };
+
+            CallConverter.AddCallParameterIfAssigned(
+                call,
+                new S7FunctionBlockParameter(call) { Name = "UNUSED", Value = null });
+            CallConverter.AddCallParameterIfAssigned(
+                call,
+                new S7FunctionBlockParameter(call) { Name = "ALSO_UNUSED", Value = "" });
+            CallConverter.AddCallParameterIfAssigned(
+                call,
+                new S7FunctionBlockParameter(call) { Name = "ENABLED", Value = "FALSE" });
+            CallConverter.AddCallParameterIfAssigned(
+                call,
+                new S7FunctionBlockParameter(call) { Name = "DELAY", Value = "0" });
+
+            ClassicAssert.AreEqual(2, call.CallParameter.Count);
+            StringAssert.DoesNotContain("UNUSED", call.ToString());
+            StringAssert.Contains("ENABLED := FALSE", call.ToString());
+            StringAssert.Contains("DELAY   := 0", call.ToString());
         }
 
         private static S7DataRow CreateMultiInstance(S7FunctionBlock block, string name, int blockNumber)

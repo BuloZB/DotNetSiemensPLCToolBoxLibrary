@@ -137,9 +137,14 @@ namespace DotNetSiemensPLCToolBoxLibrary.DataTypes.Blocks.Step7V5
         /// </summary>
         public int CheckSum { get; set; }
 
-        public virtual string GetSourceBlock(bool useSymbols = false)
+        public virtual string GetSourceBlock(bool useSymbols = true)
         {
             return null;
+        }
+
+        public virtual string GetSourceBlock(S7SourceOperandMode operandMode)
+        {
+            return GetSourceBlock(operandMode == S7SourceOperandMode.Symbolic);
         }
 
         private byte[] _password;
