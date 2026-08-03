@@ -27,6 +27,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using DotNetSiemensPLCToolBoxLibrary.DataTypes.AWL.Step7V5;
 using DotNetSiemensPLCToolBoxLibrary.PLCs.S7_xxx.MC7;
 
 namespace DotNetSiemensPLCToolBoxLibrary.DataTypes.Blocks.Step7V5
@@ -100,9 +101,12 @@ namespace DotNetSiemensPLCToolBoxLibrary.DataTypes.Blocks.Step7V5
             return expStruct = (S7DataRow)GetArrayExpandedStructure(new S7DataBlockExpandOptions());
         }
 
-        public override string GetSourceBlock(bool useSymbols = false)
+        public override string GetSourceBlock(bool useSymbols = true)
         {
             StringBuilder retVal = new StringBuilder();
+            S7SourceOperandMode operandMode = useSymbols
+                ? S7SourceOperandMode.Symbolic
+                : S7SourceOperandMode.Absolute;
 
             string name = this.BlockName;
             if (useSymbols && SymbolTableEntry != null)
@@ -129,7 +133,12 @@ namespace DotNetSiemensPLCToolBoxLibrary.DataTypes.Blocks.Step7V5
             if (this.Structure.Children != null && !this.IsInstanceDB)
             {
                 retVal.AppendLine("  STRUCT");
-                string lines = AWLToSource.DataRowToSource(((S7DataRow)this.Structure), "    ");
+                string lines = AWLToSource.DataRowToSource(
+                    (S7DataRow)this.Structure,
+                    "    ",
+                    false,
+                    operandMode,
+                    SymbolTable);
                 retVal.Append(lines);
                 retVal.AppendLine("  END_STRUCT ;");
 

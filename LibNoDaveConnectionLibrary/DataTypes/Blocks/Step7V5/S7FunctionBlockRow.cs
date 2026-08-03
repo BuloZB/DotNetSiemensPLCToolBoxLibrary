@@ -687,17 +687,24 @@ namespace DotNetSiemensPLCToolBoxLibrary.DataTypes.Blocks.Step7V5
                     ext += "\r\n" + " ".PadLeft(12) + myStr;
             }
 
-            if (CallParameter != null && CallParameter.Count > 0 && (Command == Mnemonic.opCALL[(int)MnemonicLanguage]))
+            // Unassigned entries must remain in CallParameter because STEP 7 comment
+            // metadata counts every interface slot. Only omit them from source output.
+            List<S7FunctionBlockParameter> renderedCallParameters = CallParameter == null
+                ? null
+                : CallParameter.Where(parameter => !string.IsNullOrEmpty(parameter.Value)).ToList();
+            if (renderedCallParameters != null &&
+                renderedCallParameters.Count > 0 &&
+                Command == Mnemonic.opCALL[(int)MnemonicLanguage])
             {
                 int i = 0;
                 int len = 0;
-                foreach (var cpar in CallParameter)
+                foreach (var cpar in renderedCallParameters)
                     len = cpar.Name.Length > len ? cpar.Name.Length : len;
-                foreach (var cpar in CallParameter)
+                foreach (var cpar in renderedCallParameters)
                 {
                     i++;
                     ext += "\r\n" + " ".PadLeft(12) + cpar.Name.PadRight(len) + " := " + cpar.GetValue(useSymbol);
-                    if (i < CallParameter.Count)
+                    if (i < renderedCallParameters.Count)
                         ext += ",";
                     else
                         ext += ")";
