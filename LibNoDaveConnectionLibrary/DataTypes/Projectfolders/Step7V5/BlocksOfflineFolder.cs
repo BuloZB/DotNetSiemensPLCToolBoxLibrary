@@ -442,6 +442,32 @@ namespace DotNetSiemensPLCToolBoxLibrary.DataTypes.Projectfolders.Step7V5
             return GetInterface(blkName, myConvOpt);
         }
 
+        /// <summary>
+        /// The plaintext interface declaration (SUBBLKTYP 3/4/5/7/9 for code blocks, 1/6 for DB/UDT) only exists for
+        /// blocks that were created offline in STEP 7. Blocks that were uploaded from a PLC only carry the binary
+        /// MC7 interface (SSBPART), the plaintext record is missing for them.
+        /// </summary>
+        private static bool HasPlaintextInterface(TmpBlock myTmpBlk)
+        {
+            return myTmpBlk != null && !string.IsNullOrWhiteSpace(myTmpBlk.blkinterface);
+        }
+
+        /// <summary>
+        /// Decides whether the interface has to be taken from the MC7 code (SSBPART) instead of the plaintext
+        /// declaration: either because the plaintext declaration does not exist at all, or because the caller
+        /// asked for timestamp conflict checking and the two records disagree.
+        /// </summary>
+        private static bool UseInterfaceFromMC7(TmpBlock myTmpBlk, S7ConvertingOptions myConvOpt)
+        {
+            if (myTmpBlk == null)
+                return false;
+
+            if (!HasPlaintextInterface(myTmpBlk))
+                return myTmpBlk.blkinterfaceInMC5 != null && myTmpBlk.blkinterfaceInMC5.Length > 0;
+
+            return myConvOpt != null && myConvOpt.CheckForInterfaceTimestampConflicts && S7Block.HasTimestampConflict(myTmpBlk.LastInterfaceChange, myTmpBlk.LastInterfaceChangeHistory);
+        }
+
         public S7DataRow GetInterface(string blkName, S7ConvertingOptions myConvOpt)
         {
             var blkInfo = GetProjectBlockInfoFromBlockName(blkName);
@@ -449,14 +475,14 @@ namespace DotNetSiemensPLCToolBoxLibrary.DataTypes.Projectfolders.Step7V5
                 return null;
             TmpBlock myTmpBlk = GetBlockBytes(blkInfo);
             List<string> tmpPar = new List<string>();
-            if (myConvOpt.CheckForInterfaceTimestampConflicts && S7Block.HasTimestampConflict(myTmpBlk.LastInterfaceChange, myTmpBlk.LastInterfaceChangeHistory))
+            if (UseInterfaceFromMC7(myTmpBlk, myConvOpt))
             {
-                return GetInterfaceStructureFromMC7(blkInfo, myTmpBlk, null, ref tmpPar);
+                var mc7Interface = GetInterfaceStructureFromMC7(blkInfo, myTmpBlk, null, ref tmpPar);
+                if (mc7Interface != null)
+                    return mc7Interface;
+                tmpPar = new List<string>();
             }
-            else
-            {
-                return Parameter.GetInterfaceOrDBFromStep7ProjectString(myTmpBlk.blkinterface, ref tmpPar, blkInfo.BlockType, false, this, null, myConvOpt);
-            }
+            return Parameter.GetInterfaceOrDBFromStep7ProjectString(myTmpBlk.blkinterface, ref tmpPar, blkInfo.BlockType, false, this, null, myConvOpt);
         }
 
         /// <summary>
@@ -595,7 +621,14 @@ namespace DotNetSiemensPLCToolBoxLibrary.DataTypes.Projectfolders.Step7V5
                     retVal.LastInterfaceChangeHistory = myTmpBlk.LastInterfaceChangeHistory;
 
                     retVal.StructureFromMC7 = GetInterfaceStructureFromMC7(blkInfo, myTmpBlk, retVal, ref tmpList);
-                    retVal.StructureFromString = Parameter.GetInterfaceOrDBFromStep7ProjectString(myTmpBlk.blkinterface, ref tmpList, blkInfo.BlockType, false, this, retVal, myConvOpt, myTmpBlk.mc7code);
+
+                    //Without a plaintext declaration (e.g. a DB uploaded from the PLC) the string parser can only return
+                    //an empty structure, which would hide the MC7 structure behind it. Leave StructureFromString empty
+                    //in that case, so that S7DataBlock.Structure falls back to StructureFromMC7.
+                    if (HasPlaintextInterface(myTmpBlk) || retVal.StructureFromMC7 == null)
+                    {
+                        retVal.StructureFromString = Parameter.GetInterfaceOrDBFromStep7ProjectString(myTmpBlk.blkinterface, ref tmpList, blkInfo.BlockType, false, this, retVal, myConvOpt, myTmpBlk.mc7code);
+                    }
 
                     retVal.BlockNumber = plcblkifo.BlockNumber;
                     retVal.Name = plcblkifo.Name;
@@ -632,11 +665,13 @@ namespace DotNetSiemensPLCToolBoxLibrary.DataTypes.Projectfolders.Step7V5
                     retVal.Author = myTmpBlk.username;
                     retVal.Version = myTmpBlk.version;
 
-                    if (myConvOpt.CheckForInterfaceTimestampConflicts && S7Block.HasTimestampConflict(retVal.LastInterfaceChange, retVal.LastInterfaceChangeHistory))
+                    if (UseInterfaceFromMC7(myTmpBlk, myConvOpt))
                     {
                         retVal.Parameter = GetInterfaceStructureFromMC7(blkInfo, myTmpBlk, retVal, ref ParaList);
+                        if (retVal.Parameter == null)
+                            ParaList = new List<string>();
                     }
-                    else
+                    if (retVal.Parameter == null)
                     {
                         retVal.Parameter = Parameter.GetInterfaceOrDBFromStep7ProjectString(myTmpBlk.blkinterface, ref ParaList, blkInfo.BlockType, false, this, retVal, myConvOpt);
                     }
