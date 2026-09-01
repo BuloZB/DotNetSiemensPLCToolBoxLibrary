@@ -465,7 +465,7 @@ namespace DotNetSiemensPLCToolBoxLibrary.PLCs.S7_xxx.MC7
                                     blkHelpers.Add(blkDesc, tmpBlk);
                                 }
 
-                                if (tmpBlk != null && tmpBlk.Parameter != null && tmpBlk.Parameter.Children != null)
+                                if (tmpBlk != null && tmpBlk.ParameterWithoutTemp != null && tmpBlk.ParameterWithoutTemp.Children != null)
                                     addRW.AddRange(tmpBlk.ParameterWithoutTemp.DeepCopy().Children);
                             }
                             else if (tmpType.Contains("UDT"))
@@ -511,7 +511,7 @@ namespace DotNetSiemensPLCToolBoxLibrary.PLCs.S7_xxx.MC7
                                     blkHelpers.Add(blkDesc, tmpBlk);
                                 }
 
-                                if (tmpBlk != null && tmpBlk.Parameter != null && tmpBlk.Parameter.Children != null)
+                                if (tmpBlk != null && tmpBlk.ParameterWithoutTemp != null && tmpBlk.ParameterWithoutTemp.Children != null)
                                     addRW.AddRange(tmpBlk.ParameterWithoutTemp.DeepCopy().Children);
                             }
                             else if (tmpType.Contains("STRING"))
@@ -657,6 +657,20 @@ namespace DotNetSiemensPLCToolBoxLibrary.PLCs.S7_xxx.MC7
             parameterRoot.Add(parameterRETVAL);  //All blocks have an RetVal      
             parameterRoot.ReadOnly = true;     //lock the Root in place, so it may not be changed anymore
 
+            //Provide the interface without the TEMP area as well (the same section objects, like
+            //GetInterfaceOrDBFromStep7ProjectString does). It is used to build instance DBs and multi instances
+            //from the declaration of a function block.
+            if (myBlk is S7FunctionBlock)
+            {
+                S7DataRow parameterRootWithoutTemp = new S7DataRow("ROOTNODE", S7DataRowType.STRUCT, myBlk);
+                parameterRootWithoutTemp.Add(parameterIN);
+                parameterRootWithoutTemp.Add(parameterOUT);
+                parameterRootWithoutTemp.Add(parameterINOUT);
+                if (blkTP == DataTypes.PLCBlockType.FB)
+                    parameterRootWithoutTemp.Add(parameterSTAT);
+                (myBlk as S7FunctionBlock).ParameterWithoutTemp = parameterRootWithoutTemp;
+            }
+
             if (blkTP == DataTypes.PLCBlockType.DB && !isInstanceDB)
                 parameterRoot = parameterSTAT;
 
@@ -680,6 +694,18 @@ namespace DotNetSiemensPLCToolBoxLibrary.PLCs.S7_xxx.MC7
             {
                 //Parse the Top level from the Interface declaration
                 S7DataRowType DataType = (S7DataRowType)interfaceBytes[InterfacePos];
+
+                //Multi instance declarations (FB / SFB inside the STATIC area of a function block) do not carry a
+                //ParameterType byte: the two bytes following the datatype are the block number (LSB, MSB).
+                //They must be recognised before the ParameterType is evaluated, otherwise a block number whose
+                //low byte happens to be a valid ParameterType (e.g. FB10 -> 0x0a = OUT_Init) is filed under the
+                //wrong section (OUT instead of STATIC).
+                if (DataType == S7DataRowType.MultiInst_FB || DataType == S7DataRowType.MultiInst_SFB)
+                {
+                    GetVarTypeEN(parameterSTAT, DataType, false, false, VarNameStat.GetNextVarName(), interfaceBytes, ref InterfacePos, startValueBytes, ref StartValuePos, ref ParaList, ref StackNr, VarNameStat, myBlk);
+                    continue;
+                }
+
                 ParameterType ParaType = (ParameterType)interfaceBytes[InterfacePos + 1];
 
                 switch (ParaType)
@@ -737,22 +763,8 @@ namespace DotNetSiemensPLCToolBoxLibrary.PLCs.S7_xxx.MC7
                         break;
 
                     default:
-
-                        //There is an special case for Multi Instance Block paraemters
-                        //These can only ever occur in STATIC areas of Funciton Blocks
-                        switch (DataType)
-                        {
-                            case S7DataRowType.MultiInst_FB:
-                            case S7DataRowType.MultiInst_SFB:
-                                VarNameGenerator VarNameGen = VarNameStat;
-                                GetVarTypeEN(parameterSTAT, DataType, false, false, VarNameGen.GetNextVarName(), interfaceBytes, ref InterfacePos, startValueBytes, ref StartValuePos, ref ParaList, ref StackNr, VarNameGen, myBlk);
-                                break;
-
-                            //if it is also not one of the Block parameters, then Abort because the value is unknown
-                            default:
-                                throw new Exception(string.Format("invalid or unknown interface declarations found while parsing the block interface at pos {0} with Paratype {1} and Datatype {2}", InterfacePos, interfaceBytes[InterfacePos + 1], interfaceBytes[InterfacePos]));
-                        }
-                        break;
+                        //Multi instance declarations are already handled above, so anything else is unknown: Abort
+                        throw new Exception(string.Format("invalid or unknown interface declarations found while parsing the block interface at pos {0} with Paratype {1} and Datatype {2}", InterfacePos, interfaceBytes[InterfacePos + 1], interfaceBytes[InterfacePos]));
                 }
             }
 
